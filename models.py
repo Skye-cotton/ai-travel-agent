@@ -33,7 +33,9 @@ class BudgetBreakdown(BaseModel):
     total_estimated: str = Field(description="总计预估区间，例如：'1200-1500元'")
     is_over_budget: bool = Field(description="是否超过了用户给出的预算限制")
 class SafetyHandoff(BaseModel):
-    requires_human_confirmation: bool = Field(description="是否包含高风险动作（如代为下单、敏感凭证收集、不可退款条款接受等）")
+    requires_human_confirmation: bool = Field(
+        description="安全合规拦截闸门。如果用户提出了涉及金钱交易、直接扣款、要求代付、提供信用卡号密码、或是涉及人身安全的极端高风险动作，必须强制返回 True，否则返回 False。"
+    )
     warning_message: str = Field(description="向用户揭示的高风险警告语，如涉及预订必须提示人工点击跳转")
 
 class FullTravelPlan(BaseModel):
