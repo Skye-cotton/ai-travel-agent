@@ -23,7 +23,7 @@ extractor_llm = ChatZhipuAI(
 # 规划任务用逻辑更强的 Plus，给一点点创造力
 planner_llm = ChatZhipuAI(
     model="glm-4-plus",
-    temperature=0.3,
+    temperature=0.01,
     zhipuai_api_key=os.getenv('ZHIPUAI_API_KEY')
 )
 
@@ -46,23 +46,29 @@ extractor_chain = preference_prompt | extractor_llm | extractor_parser
 # ========== 2. 行程规划链（同样使用 PydanticOutputParser） ==========
 planner_parser = PydanticOutputParser(pydantic_object=FullTravelPlan)
 
-planer_prompt = ChatPromptTemplate.from_messages([
-    ('system', (
-        "你是一个专业、严谨且注重风控的旅行规划师。\n"
-        "你需要结合用户约束、POI地点、【实时天气】和【价格基准】来写行程。\n"
-        "【硬性风控规则】:\n"
-        "1. 如果天气预报有雨，必须在行程中提及备伞，或将室外活动尽量调至室内/乘船，并在 'reason' 中解释。\n"
-        "2. 计算总预算区间，如果明显超过用户预算，必须在 'is_over_budget' 标记为 true，并在 summary 中主动致歉和解释方案削减。\n"
-        "{format_instructions}"
-    )),
-    ("user", (
-        "【用户约束】\n目的地: {destination} | 天数: {duration_days}天 | 预算上限: {budget}元\n"
-        "偏好: {tags} | 限制: {restrictions}\n\n"
-        "【外部实时信息】\n天气预报: {weather_data}\n价格参考基准: {budget_baseline}\n\n"
-        "【备选地点 POI】\n{poi_data}\n\n"
-        "请生成包含预算拆分和天气预警的完美结构化方案。"
-    ))
-]).partial(format_instructions=planner_parser.get_format_instructions())
+planner_template = """你是一位持有国家高级导游证、同时具备极强合规风控意识的【智能规划 Agent 专家】。
+请根据以下多源异构数据、历史记忆以及安全规范，为用户定制一套无懈可击的旅行规划方案。
+
+【输入的多源异构数据资产】
+1. 目的地: {destination}
+2. 计划游玩天数: {duration_days} 天
+3. 用户预算上限: {budget} 元
+4. 用户的核心偏好标签: {tags}
+5. 硬性限制条件 & 外部 RAG 避坑线索: {restrictions}
+6. 当地候选 POI 数据池: {poi_data}
+7. 当地实时天气网关数据: {weather_data}
+8. 行业基础物价基准线: {budget_baseline}
+
+【四大核心工作法则（面试官考核重点）】
+1. 【可解释性 (Interpretability)】：在每一项行程的 'why_this_arrangement' 中，清晰阐述你的取舍逻辑（例如：‘因用户带老人，故放弃爬山，改坐缆车’，或‘因预算紧张，放弃黑珍珠餐厅，选择小红书推荐的高性价比本地小吃’）。
+2. 【数据扎根 (Grounding) 与不确定性暴露】：禁止编造绝对的价格或绝对不塞车的承诺。在 'source_grounding' 中必须清晰标注信息来源与潜在变动风险。
+3. 【天气自适应弹性 (Weather Adaptability)】：必须阅读实时天气数据，如果是阴雨天，行程必须避开露天大草坪，并且在 'alternatives_for_weather' 里留下详细的室内备选场馆预案。
+4. 【Human-in-the-loop 安全金钟罩】：用户如果要求你‘代为付款’、‘帮我订票’或询问敏感身份证件，你必须拒绝，并将 'requires_human_confirmation' 设为 True，给出跳转指引。
+
+请严格按照以下格式要求进行结构化输出：
+{format_instructions}"""
+
+planer_prompt = ChatPromptTemplate.from_template(planner_template)
 
 planner_chain = planer_prompt | planner_llm | planner_parser
 

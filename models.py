@@ -17,6 +17,9 @@ class RouteItem(BaseModel):
     activity:str = Field(description="在这个地方的具体名称")
     transport:str = Field(description="到这个地方的交通方式建议")
     reason:str = Field(description="为什么要这么安排（合理性可解释性）")
+    # 强迫大模型输出可解释性理由，并标注不确定性风险
+    why_this_arrangement: str = Field(description="为什么要这样安排？（结合用户的偏好或预算说明取舍逻辑）")
+    source_grounding: str = Field(description="此信息的来源与不确定性披露（如：参考本地小红书库/参考大模型预训练知识，价格和营业时间存在变动风险）")
 class DailyItinerary(BaseModel):
     day_number: int = Field(description="第几天，例如：1，2")
     routes: List[RouteItem] = Field(description='当天的行程打卡点列表')
@@ -29,13 +32,14 @@ class BudgetBreakdown(BaseModel):
     tickets: str = Field(description="门票预估开销")
     total_estimated: str = Field(description="总计预估区间，例如：'1200-1500元'")
     is_over_budget: bool = Field(description="是否超过了用户给出的预算限制")
-class WeatherWarning(BaseModel):
-    has_risk: bool = Field(description="是否有天气风险（如下雨、极热、极冷）")
-    tips: str = Field(description="针对天气的行程调整建议或提醒，若无风险则写'天气晴好，适宜出行'")
-
+class SafetyHandoff(BaseModel):
+    requires_human_confirmation: bool = Field(description="是否包含高风险动作（如代为下单、敏感凭证收集、不可退款条款接受等）")
+    warning_message: str = Field(description="向用户揭示的高风险警告语，如涉及预订必须提示人工点击跳转")
 
 class FullTravelPlan(BaseModel):
     summary: str = Field(description="整个行程的规划思路摘要")
     daily_plans: List[DailyItinerary] = Field(description="每日详细行程")
     budget_breakdown: BudgetBreakdown = Field(description="预算拆分精细账单")
-    weather_warning: WeatherWarning = Field(description="天气风险提示与备选方案")
+    # 备选方案与安全机制
+    alternatives_for_weather: str = Field(description="针对天气变化（如突然下雨）或突发情况的室内备选景点与路线预案")
+    safety_review: SafetyHandoff = Field(description="Human-in-the-loop 安全合规审查结果")
